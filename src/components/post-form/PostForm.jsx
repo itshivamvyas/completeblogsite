@@ -1,29 +1,27 @@
-import React, { useCallback } from "react";
+import React, { useCallback,useState } from "react";
 import { useForm } from "react-hook-form";
 import { Button, Input, RTE, Select } from "..";
 import appwriteService from "../../appwrite/config";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 
-// eslint-disable-next-line react/prop-types
 export default function PostForm({ post }) {
-    const { register, handleSubmit, watch, setValue, control, getValues } = useForm({
+    const { register, handleSubmit, watch, setValue, control, getValues,formState:{errors}} = useForm({
         defaultValues: {
-            // eslint-disable-next-line react/prop-types
             title: post?.title || "",
-            // eslint-disable-next-line react/prop-types
             slug: post?.$id || "",
-            // eslint-disable-next-line react/prop-types
             content: post?.content || "",
-            // eslint-disable-next-line react/prop-types
             status: post?.status || "active",
         },
     });
+
+    const [loading, setLoading] = useState(false);
 
     const navigate = useNavigate();
     const userData = useSelector((state) => state.auth.userData);
 
     const submit = async (data) => {
+        setLoading(true)
         if (post) {
             const file = data.image[0] ? await appwriteService.uploadFile(data.image[0]) : null;
 
@@ -45,6 +43,9 @@ export default function PostForm({ post }) {
             if (file) {
                 const fileId = file.$id;
                 data.featuredImage = fileId;
+
+                console.log(data)
+
                 const dbPost = await appwriteService.createPost({ ...data, userId: userData.$id });
 
                 if (dbPost) {
@@ -76,19 +77,22 @@ export default function PostForm({ post }) {
     }, [watch, slugTransform, setValue]);
 
     return (
-        <form onSubmit={handleSubmit(submit)} className="flex flex-wrap">
+        <form onSubmit={handleSubmit(submit, (e)=>console.log(e))} className="flex flex-wrap">
             <div className="w-2/3 px-2">
                 <Input
                     label="Title :"
                     placeholder="Title"
                     className="mb-4"
-                    {...register("title", { required: true })}
+                    err={errors.title}
+                    {...register("title", { required: "Please enter title" })}
                 />
                 <Input
                     label="Slug :"
                     placeholder="Slug"
                     className="mb-4"
-                    {...register("slug", { required: true })}
+                    err={errors.slug}
+
+                    {...register("slug", { required: "Please enter slug" })}
                     onInput={(e) => {
                         setValue("slug", slugTransform(e.currentTarget.value), { shouldValidate: true });
                     }}
@@ -100,8 +104,10 @@ export default function PostForm({ post }) {
                     label="Featured Image :"
                     type="file"
                     className="mb-4"
+                    err={errors.image}
+
                     accept="image/png, image/jpg, image/jpeg, image/gif"
-                    {...register("image", { required: !post })}
+                    {...register("image", { required: post ? false :"Please upload featured image" })}
                 />
                 {post && (
                     <div className="w-full mb-4">
@@ -118,8 +124,8 @@ export default function PostForm({ post }) {
                     className="mb-4"
                     {...register("status", { required: true })}
                 />
-                <Button type="submit" bgColor={post ? "bg-green-500" : undefined} className="w-full">
-                    {post ? "Update" : "Submit"}
+                <Button disabled={loading} type="submit" bgColor={post ? "bg-green-500" : undefined} className="w-full">
+                    {loading ? "Loading ...":post ? "Update" : "Submit"}
                 </Button>
             </div>
         </form>
